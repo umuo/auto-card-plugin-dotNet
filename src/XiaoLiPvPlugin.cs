@@ -39,7 +39,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_LAYOUT")]
-        public void ShowLayoutTool() => ShowSidebarTab(ToolTab.Layout);
+        public void RunLayoutTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Layout);
+            var settings = _control.GetLayoutSettings();
+            LayoutToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_CABLE")]
         public void ShowCableTool() => ShowSidebarTab(ToolTab.Cable);
