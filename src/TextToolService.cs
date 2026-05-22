@@ -44,7 +44,13 @@ namespace XiaoLiPV
             ObjectId[] selectedIds;
             if (settings.Mode == TextIncrementMode.Single)
             {
-                var entityResult = ed.GetEntity("\n请选择需要递增的单个文字对象: ");
+                var entityOptions = new PromptEntityOptions("\n请选择需要递增的单个文字对象: ");
+                entityOptions.SetRejectMessage("\n请选择文字对象。");
+                entityOptions.AddAllowedClass(typeof(DBText), true);
+                entityOptions.AddAllowedClass(typeof(MText), true);
+                entityOptions.AddAllowedClass(typeof(AttributeReference), true);
+
+                var entityResult = ed.GetEntity(entityOptions);
                 if (entityResult.Status != PromptStatus.OK)
                 {
                     ed.WriteMessage("\n[小栗光伏] 未选择有效文字对象，文字递增已取消。\n");
@@ -177,7 +183,7 @@ namespace XiaoLiPV
                     text = dbText.TextString;
                     return true;
                 case MText mText:
-                    text = mText.Contents;
+                    text = NormalizeMTextText(mText.Contents);
                     return true;
                 case AttributeReference attrib:
                     text = attrib.TextString;
@@ -236,6 +242,17 @@ namespace XiaoLiPV
             {
                 return false;
             }
+        }
+
+        private static string NormalizeMTextText(string contents)
+        {
+            if (string.IsNullOrEmpty(contents)) return contents;
+
+            return contents
+                .Replace("\\P", " ")
+                .Replace("\\~", " ")
+                .Replace("{", string.Empty)
+                .Replace("}", string.Empty);
         }
 
         private static string FormatNumber(int value, int width)
