@@ -18,6 +18,7 @@ namespace XiaoLiPV
         private readonly TextBox _cableModulesPerString;
         private readonly ComboBox _cableRouteMode;
         private readonly TextBox _namePrefix;
+        private readonly TextBox _bridgeDecimalPlaces;
 
         public SidebarControl()
         {
@@ -66,7 +67,7 @@ namespace XiaoLiPV
                 out _cableModulesPerString,
                 out _cableRouteMode));
             _tabs.TabPages.Add(CreateNamePage(out _namePrefix));
-            _tabs.TabPages.Add(CreateSimplePage("桥架统计", "执行 XL_BRIDGE", "XL_BRIDGE"));
+            _tabs.TabPages.Add(CreateBridgePage(out _bridgeDecimalPlaces));
             _tabs.TabPages.Add(CreateSimplePage("多段线统计", "执行 XL_PLINE", "XL_PLINE"));
             _tabs.TabPages.Add(CreateSimplePage("文字数字递增", "执行 XL_TEXT", "XL_TEXT"));
 
@@ -127,6 +128,14 @@ namespace XiaoLiPV
             };
         }
 
+        public BridgeSettings GetBridgeSettings()
+        {
+            return new BridgeSettings
+            {
+                DecimalPlaces = Math.Max(0, ReadInt(_bridgeDecimalPlaces, 2))
+            };
+        }
+
         private TabPage CreateShadowPage(out ComboBox roofType)
         {
             var page = CreatePage("光伏阴影分析");
@@ -170,6 +179,21 @@ namespace XiaoLiPV
 
             panel.Controls.Add(CreateActionButton("执行 XL_NAME", "XL_NAME"));
             panel.Controls.Add(CreateHint("手动框选 0组串穿线 / 0 组串穿线 图层上的目标组串，自动生成 0组串命名 文字。"));
+            page.Controls.Add(panel);
+            return page;
+        }
+
+        private TabPage CreateBridgePage(out TextBox decimalPlaces)
+        {
+            var page = CreatePage("桥架统计");
+            var panel = CreateFlowPanel();
+
+            panel.Controls.Add(CreateLabel("小数保留位数"));
+            decimalPlaces = CreateTextBox("2");
+            panel.Controls.Add(decimalPlaces);
+
+            panel.Controls.Add(CreateActionButton("执行 XL_BRIDGE", "XL_BRIDGE"));
+            panel.Controls.Add(CreateHint("手动框选直线/多段线桥架对象，统计单段明细与总长度，并尝试复制结果到剪贴板。"));
             page.Controls.Add(panel);
             return page;
         }

@@ -69,7 +69,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_BRIDGE")]
-        public void ShowBridgeTool() => ShowSidebarTab(ToolTab.Bridge);
+        public void RunBridgeTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Bridge);
+            var settings = _control.GetBridgeSettings();
+            BridgeToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_PLINE")]
         public void ShowPolylineTool() => ShowSidebarTab(ToolTab.Pline);
