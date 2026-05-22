@@ -17,6 +17,7 @@ namespace XiaoLiPV
         private readonly ComboBox _layoutOrientation;
         private readonly TextBox _cableModulesPerString;
         private readonly ComboBox _cableRouteMode;
+        private readonly TextBox _namePrefix;
 
         public SidebarControl()
         {
@@ -64,7 +65,7 @@ namespace XiaoLiPV
             _tabs.TabPages.Add(CreateCablePage(
                 out _cableModulesPerString,
                 out _cableRouteMode));
-            _tabs.TabPages.Add(CreateSimplePage("组串命名", "执行 XL_NAME", "XL_NAME"));
+            _tabs.TabPages.Add(CreateNamePage(out _namePrefix));
             _tabs.TabPages.Add(CreateSimplePage("桥架统计", "执行 XL_BRIDGE", "XL_BRIDGE"));
             _tabs.TabPages.Add(CreateSimplePage("多段线统计", "执行 XL_PLINE", "XL_PLINE"));
             _tabs.TabPages.Add(CreateSimplePage("文字数字递增", "执行 XL_TEXT", "XL_TEXT"));
@@ -118,6 +119,14 @@ namespace XiaoLiPV
             };
         }
 
+        public NameSettings GetNameSettings()
+        {
+            return new NameSettings
+            {
+                Prefix = string.IsNullOrWhiteSpace(_namePrefix?.Text) ? "NB01" : _namePrefix.Text.Trim()
+            };
+        }
+
         private TabPage CreateShadowPage(out ComboBox roofType)
         {
             var page = CreatePage("光伏阴影分析");
@@ -146,6 +155,21 @@ namespace XiaoLiPV
 
             panel.Controls.Add(CreateActionButton("执行 XL_CABLE", "XL_CABLE"));
             panel.Controls.Add(CreateHint("读取 0组件 图层上的组件矩形/多段线，生成 0组串穿线 和 0正负极端点。"));
+            page.Controls.Add(panel);
+            return page;
+        }
+
+        private TabPage CreateNamePage(out TextBox prefix)
+        {
+            var page = CreatePage("组串命名");
+            var panel = CreateFlowPanel();
+
+            panel.Controls.Add(CreateLabel("组串前缀编号"));
+            prefix = CreateTextBox("NB01");
+            panel.Controls.Add(prefix);
+
+            panel.Controls.Add(CreateActionButton("执行 XL_NAME", "XL_NAME"));
+            panel.Controls.Add(CreateHint("手动框选 0组串穿线 / 0 组串穿线 图层上的目标组串，自动生成 0组串命名 文字。"));
             page.Controls.Add(panel);
             return page;
         }

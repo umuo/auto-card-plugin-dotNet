@@ -9,6 +9,8 @@ namespace XiaoLiPV
 {
     public static class CableToolService
     {
+        public const string RegAppName = "XLPV";
+
         private sealed class ModuleInfo
         {
             public Point3d Center { get; set; }
@@ -52,7 +54,7 @@ namespace XiaoLiPV
                     var stringModules = ordered.GetRange(i, take);
                     if (stringModules.Count >= 2)
                     {
-                        CreateCablePolyline(btr, tr, stringModules, cableLayerId);
+                        CreateCablePolyline(btr, tr, db, stringModules, cableLayerId);
                         cableCount++;
                     }
 
@@ -160,6 +162,7 @@ namespace XiaoLiPV
         private static void CreateCablePolyline(
             BlockTableRecord btr,
             Transaction tr,
+            Database db,
             IList<ModuleInfo> modules,
             ObjectId layerId)
         {
@@ -172,6 +175,7 @@ namespace XiaoLiPV
                 pl.AddVertexAt(i, new Point2d(modules[i].Center.X, modules[i].Center.Y), 0, 0, 0);
             }
 
+            AttachModuleCountData(tr, db, pl, modules.Count);
             btr.AppendEntity(pl);
             tr.AddNewlyCreatedDBObject(pl, true);
         }
@@ -186,6 +190,30 @@ namespace XiaoLiPV
             var radius = Math.Max(20.0, Math.Min(GetMarkerBaseSize(start), GetMarkerBaseSize(end)) * 0.12);
             CreateMarker(btr, tr, start.Center, radius, "+", layerId);
             CreateMarker(btr, tr, end.Center, radius, "-", layerId);
+        }
+
+        private static void AttachModuleCountData(Transaction tr, Database db, Entity entity, int moduleCount)
+        {
+            if (entity == null || moduleCount <= 0) return;
+
+            EnsureRegApp(tr, db, RegAppName);
+            entity.XData = new ResultBuffer(
+                new TypedValue((int)DxfCode.ExtendedDataRegAppName, RegAppName),
+                new TypedValue((int)DxfCode.ExtendedDataInteger32, moduleCount));
+        }
+
+        private static void EnsureRegApp(Transaction tr, Database db, string appName)
+        {
+            var rat = (RegAppTable)tr.GetObject(db.RegAppTableId, OpenMode.ForRead);
+            if (rat.Has(appName))
+            {
+                return;
+            }
+
+            rat.UpgradeOpen();
+            var record = new RegAppTableRecord { Name = appName };
+            rat.Add(record);
+            tr.AddNewlyCreatedDBObject(record, true);
         }
 
         private static double GetMarkerBaseSize(ModuleInfo module)

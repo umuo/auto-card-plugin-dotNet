@@ -59,7 +59,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_NAME")]
-        public void ShowNameTool() => ShowSidebarTab(ToolTab.Name);
+        public void RunNameTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Name);
+            var settings = _control.GetNameSettings();
+            NameToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_BRIDGE")]
         public void ShowBridgeTool() => ShowSidebarTab(ToolTab.Bridge);
