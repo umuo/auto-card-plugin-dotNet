@@ -19,6 +19,8 @@ namespace XiaoLiPV
         private readonly ComboBox _cableRouteMode;
         private readonly TextBox _namePrefix;
         private readonly TextBox _bridgeDecimalPlaces;
+        private readonly TextBox _plineLengthDecimalPlaces;
+        private readonly TextBox _plineAreaDecimalPlaces;
 
         public SidebarControl()
         {
@@ -68,7 +70,7 @@ namespace XiaoLiPV
                 out _cableRouteMode));
             _tabs.TabPages.Add(CreateNamePage(out _namePrefix));
             _tabs.TabPages.Add(CreateBridgePage(out _bridgeDecimalPlaces));
-            _tabs.TabPages.Add(CreateSimplePage("多段线统计", "执行 XL_PLINE", "XL_PLINE"));
+            _tabs.TabPages.Add(CreatePlinePage(out _plineLengthDecimalPlaces, out _plineAreaDecimalPlaces));
             _tabs.TabPages.Add(CreateSimplePage("文字数字递增", "执行 XL_TEXT", "XL_TEXT"));
 
             root.Controls.Add(_nav, 0, 0);
@@ -136,6 +138,15 @@ namespace XiaoLiPV
             };
         }
 
+        public PlineSettings GetPlineSettings()
+        {
+            return new PlineSettings
+            {
+                LengthDecimalPlaces = Math.Max(0, ReadInt(_plineLengthDecimalPlaces, 2)),
+                AreaDecimalPlaces = Math.Max(0, ReadInt(_plineAreaDecimalPlaces, 2))
+            };
+        }
+
         private TabPage CreateShadowPage(out ComboBox roofType)
         {
             var page = CreatePage("光伏阴影分析");
@@ -194,6 +205,25 @@ namespace XiaoLiPV
 
             panel.Controls.Add(CreateActionButton("执行 XL_BRIDGE", "XL_BRIDGE"));
             panel.Controls.Add(CreateHint("手动框选直线/多段线桥架对象，统计单段明细与总长度，并尝试复制结果到剪贴板。"));
+            page.Controls.Add(panel);
+            return page;
+        }
+
+        private TabPage CreatePlinePage(out TextBox lengthDecimalPlaces, out TextBox areaDecimalPlaces)
+        {
+            var page = CreatePage("多段线统计");
+            var panel = CreateFlowPanel();
+
+            panel.Controls.Add(CreateLabel("长度小数位数"));
+            lengthDecimalPlaces = CreateTextBox("2");
+            panel.Controls.Add(lengthDecimalPlaces);
+
+            panel.Controls.Add(CreateLabel("面积小数位数"));
+            areaDecimalPlaces = CreateTextBox("2");
+            panel.Controls.Add(areaDecimalPlaces);
+
+            panel.Controls.Add(CreateActionButton("执行 XL_PLINE", "XL_PLINE"));
+            panel.Controls.Add(CreateHint("手动框选多段线，统计总条数、单条长度、总长度，以及闭合多段线总面积。"));
             page.Controls.Add(panel);
             return page;
         }

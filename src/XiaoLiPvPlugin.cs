@@ -79,7 +79,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_PLINE")]
-        public void ShowPolylineTool() => ShowSidebarTab(ToolTab.Pline);
+        public void RunPolylineTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Pline);
+            var settings = _control.GetPlineSettings();
+            PlineToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_TEXT")]
         public void ShowTextTool() => ShowSidebarTab(ToolTab.Text);
