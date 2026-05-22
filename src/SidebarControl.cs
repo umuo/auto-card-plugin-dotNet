@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Autodesk.AutoCAD.ApplicationServices;
+using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
 using Autodesk.AutoCAD.EditorInput;
 
 namespace XiaoLiPV
@@ -226,7 +226,7 @@ namespace XiaoLiPV
 
         private void ExecuteCommand(string command)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
+            var doc = AcadApp.DocumentManager.MdiActiveDocument;
             if (doc == null) return;
 
             try
