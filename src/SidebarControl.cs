@@ -2,7 +2,6 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
-using Autodesk.AutoCAD.EditorInput;
 
 namespace XiaoLiPV
 {
@@ -10,7 +9,7 @@ namespace XiaoLiPV
     {
         private readonly TabControl _tabs;
         private readonly ListBox _nav;
-        private readonly TextBox _log;
+        private readonly ComboBox _shadowRoofType;
 
         public SidebarControl()
         {
@@ -49,13 +48,13 @@ namespace XiaoLiPV
                 SizeMode = TabSizeMode.Fixed
             };
 
-            _tabs.TabPages.Add(CreateShadowPage());
-            _tabs.TabPages.Add(CreateLayoutPage());
-            _tabs.TabPages.Add(CreateCablePage());
-            _tabs.TabPages.Add(CreateNamePage());
-            _tabs.TabPages.Add(CreateBridgePage());
-            _tabs.TabPages.Add(CreatePlinePage());
-            _tabs.TabPages.Add(CreateTextPage());
+            _tabs.TabPages.Add(CreateShadowPage(out _shadowRoofType));
+            _tabs.TabPages.Add(CreateSimplePage("光伏组件排布", "执行 XL_LAYOUT", "XL_LAYOUT"));
+            _tabs.TabPages.Add(CreateSimplePage("组串穿线", "执行 XL_CABLE", "XL_CABLE"));
+            _tabs.TabPages.Add(CreateSimplePage("组串命名", "执行 XL_NAME", "XL_NAME"));
+            _tabs.TabPages.Add(CreateSimplePage("桥架统计", "执行 XL_BRIDGE", "XL_BRIDGE"));
+            _tabs.TabPages.Add(CreateSimplePage("多段线统计", "执行 XL_PLINE", "XL_PLINE"));
+            _tabs.TabPages.Add(CreateSimplePage("文字数字递增", "执行 XL_TEXT", "XL_TEXT"));
 
             root.Controls.Add(_nav, 0, 0);
             root.Controls.Add(_tabs, 1, 0);
@@ -74,72 +73,33 @@ namespace XiaoLiPV
             }
         }
 
-        private TabPage CreateShadowPage()
+        public ShadowSettings GetShadowSettings()
+        {
+            return new ShadowSettings
+            {
+                RoofType = _shadowRoofType.SelectedIndex == 1 ? ShadowRoofType.Flat : ShadowRoofType.Slope
+            };
+        }
+
+        private TabPage CreateShadowPage(out ComboBox roofType)
         {
             var page = CreatePage("光伏阴影分析");
             var panel = CreateFlowPanel();
             panel.Controls.Add(CreateLabel("屋面类型"));
-            panel.Controls.Add(CreateCombo(new[] { "彩钢瓦坡屋面", "混凝土平屋面" }));
-            panel.Controls.Add(CreateLabel("命令入口"));
+            roofType = CreateCombo(new[] { "彩钢瓦坡屋面", "混凝土平屋面" });
+            panel.Controls.Add(roofType);
             panel.Controls.Add(CreateActionButton("执行 XL_SHADOW", "XL_SHADOW"));
-            panel.Controls.Add(CreateHint("这里先做侧边栏入口。后续再把真实参数表单和算法接进去。"));
+            panel.Controls.Add(CreateHint("当前已实现第一版真实执行：选择障碍物后，会在 CAD 中生成冬至/夏至阴影示意轮廓。"));
             page.Controls.Add(panel);
             return page;
         }
 
-        private TabPage CreateLayoutPage()
+        private TabPage CreateSimplePage(string title, string buttonText, string command)
         {
-            var page = CreatePage("光伏组件排布");
+            var page = CreatePage(title);
             var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateLabel("排布模式"));
-            panel.Controls.Add(CreateCombo(new[] { "常规", "BIPV" }));
-            panel.Controls.Add(CreateActionButton("执行 XL_LAYOUT", "XL_LAYOUT"));
-            page.Controls.Add(panel);
-            return page;
-        }
-
-        private TabPage CreateCablePage()
-        {
-            var page = CreatePage("组串穿线");
-            var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateActionButton("执行 XL_CABLE", "XL_CABLE"));
-            page.Controls.Add(panel);
-            return page;
-        }
-
-        private TabPage CreateNamePage()
-        {
-            var page = CreatePage("组串命名");
-            var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateTextInput("前缀", "NB01"));
-            panel.Controls.Add(CreateActionButton("执行 XL_NAME", "XL_NAME"));
-            page.Controls.Add(panel);
-            return page;
-        }
-
-        private TabPage CreateBridgePage()
-        {
-            var page = CreatePage("桥架统计");
-            var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateActionButton("执行 XL_BRIDGE", "XL_BRIDGE"));
-            page.Controls.Add(panel);
-            return page;
-        }
-
-        private TabPage CreatePlinePage()
-        {
-            var page = CreatePage("多段线统计");
-            var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateActionButton("执行 XL_PLINE", "XL_PLINE"));
-            page.Controls.Add(panel);
-            return page;
-        }
-
-        private TabPage CreateTextPage()
-        {
-            var page = CreatePage("文字数字递增");
-            var panel = CreateFlowPanel();
-            panel.Controls.Add(CreateActionButton("执行 XL_TEXT", "XL_TEXT"));
+            panel.Controls.Add(CreateActionButton(buttonText, command));
+            panel.Controls.Add(CreateHint("该功能页目前还是占位骨架，后续继续补真实逻辑。"));
             page.Controls.Add(panel);
             return page;
         }
@@ -182,12 +142,12 @@ namespace XiaoLiPV
             {
                 Text = text,
                 Width = 180,
-                Height = 60,
+                Height = 70,
                 ForeColor = Color.DimGray
             };
         }
 
-        private Control CreateCombo(string[] items)
+        private ComboBox CreateCombo(string[] items)
         {
             var box = new ComboBox
             {
@@ -197,16 +157,6 @@ namespace XiaoLiPV
             box.Items.AddRange(items);
             if (box.Items.Count > 0) box.SelectedIndex = 0;
             return box;
-        }
-
-        private Control CreateTextInput(string label, string value)
-        {
-            var panel = new Panel { Width = 190, Height = 52 };
-            var lbl = new Label { Text = label, Left = 0, Top = 0, Width = 180 };
-            var tb = new TextBox { Left = 0, Top = 22, Width = 180, Text = value };
-            panel.Controls.Add(lbl);
-            panel.Controls.Add(tb);
-            return panel;
         }
 
         private Control CreateActionButton(string caption, string command)
@@ -228,16 +178,7 @@ namespace XiaoLiPV
         {
             var doc = AcadApp.DocumentManager.MdiActiveDocument;
             if (doc == null) return;
-
-            try
-            {
-                doc.SendStringToExecute(command + " ", true, false, false);
-            }
-            catch (System.Exception ex)
-            {
-                var ed = doc.Editor;
-                ed.WriteMessage("\n[小栗光伏] 执行失败: " + ex.Message + "\n");
-            }
+            doc.SendStringToExecute(command + " ", true, false, false);
         }
     }
 }

@@ -21,6 +21,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="src\\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="AcCoreMgd">
       <HintPath>lib\\Autodesk\\AcCoreMgd.dll</HintPath>
       <Private>false</Private>

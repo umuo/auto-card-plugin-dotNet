@@ -29,7 +29,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_SHADOW")]
-        public void ShowShadowTool() => ShowSidebarTab(ToolTab.Shadow);
+        public void RunShadowTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Shadow);
+            var settings = _control.GetShadowSettings();
+            ShadowToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_LAYOUT")]
         public void ShowLayoutTool() => ShowSidebarTab(ToolTab.Layout);
