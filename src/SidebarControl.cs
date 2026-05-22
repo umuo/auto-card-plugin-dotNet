@@ -21,6 +21,8 @@ namespace XiaoLiPV
         private readonly TextBox _bridgeDecimalPlaces;
         private readonly TextBox _plineLengthDecimalPlaces;
         private readonly TextBox _plineAreaDecimalPlaces;
+        private readonly TextBox _textStep;
+        private readonly ComboBox _textMode;
 
         public SidebarControl()
         {
@@ -71,7 +73,7 @@ namespace XiaoLiPV
             _tabs.TabPages.Add(CreateNamePage(out _namePrefix));
             _tabs.TabPages.Add(CreateBridgePage(out _bridgeDecimalPlaces));
             _tabs.TabPages.Add(CreatePlinePage(out _plineLengthDecimalPlaces, out _plineAreaDecimalPlaces));
-            _tabs.TabPages.Add(CreateSimplePage("文字数字递增", "执行 XL_TEXT", "XL_TEXT"));
+            _tabs.TabPages.Add(CreateTextPage(out _textStep, out _textMode));
 
             root.Controls.Add(_nav, 0, 0);
             root.Controls.Add(_tabs, 1, 0);
@@ -144,6 +146,15 @@ namespace XiaoLiPV
             {
                 LengthDecimalPlaces = Math.Max(0, ReadInt(_plineLengthDecimalPlaces, 2)),
                 AreaDecimalPlaces = Math.Max(0, ReadInt(_plineAreaDecimalPlaces, 2))
+            };
+        }
+
+        public TextSettings GetTextSettings()
+        {
+            return new TextSettings
+            {
+                Step = ReadInt(_textStep, 1),
+                Mode = _textMode.SelectedIndex == 1 ? TextIncrementMode.Batch : TextIncrementMode.Single
             };
         }
 
@@ -224,6 +235,25 @@ namespace XiaoLiPV
 
             panel.Controls.Add(CreateActionButton("执行 XL_PLINE", "XL_PLINE"));
             panel.Controls.Add(CreateHint("手动框选多段线，统计总条数、单条长度、总长度，以及闭合多段线总面积。"));
+            page.Controls.Add(panel);
+            return page;
+        }
+
+        private TabPage CreateTextPage(out TextBox step, out ComboBox mode)
+        {
+            var page = CreatePage("文字数字递增");
+            var panel = CreateFlowPanel();
+
+            panel.Controls.Add(CreateLabel("递增值"));
+            step = CreateTextBox("1");
+            panel.Controls.Add(step);
+
+            panel.Controls.Add(CreateLabel("递增模式"));
+            mode = CreateCombo(new[] { "单条递增", "批量连续递增" });
+            panel.Controls.Add(mode);
+
+            panel.Controls.Add(CreateActionButton("执行 XL_TEXT", "XL_TEXT"));
+            panel.Controls.Add(CreateHint("识别 TEXT / MTEXT / ATTRIB 末尾数字，仅更新尾部数字并保留原文字属性。"));
             page.Controls.Add(panel);
             return page;
         }

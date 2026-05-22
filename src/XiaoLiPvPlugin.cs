@@ -89,7 +89,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_TEXT")]
-        public void ShowTextTool() => ShowSidebarTab(ToolTab.Text);
+        public void RunTextTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Text);
+            var settings = _control.GetTextSettings();
+            TextToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         private static void ShowSidebarTab(ToolTab tab)
         {
