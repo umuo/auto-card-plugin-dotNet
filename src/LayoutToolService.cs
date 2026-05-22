@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -55,6 +56,7 @@ namespace XiaoLiPV
             {
                 var btr = (BlockTableRecord)tr.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
                 var moduleLayerId = EnsureLayer(tr, db, "0组件", 3);
+                var obstacles = CollectObstacleExtents(btr, tr);
 
                 int boundaryCount = 0;
                 int moduleCount = 0;
@@ -64,6 +66,9 @@ namespace XiaoLiPV
                     if (so == null) continue;
                     var ent = tr.GetObject(so.ObjectId, OpenMode.ForRead) as Entity;
                     if (ent == null || !IsBoundaryLayer(ent.Layer)) continue;
+
+                    var vertices = GetPolylineVertices(ent, tr);
+                    if (vertices.Count < 3) continue;
 
                     Extents3d ext;
                     try
@@ -76,7 +81,7 @@ namespace XiaoLiPV
                     }
 
                     boundaryCount++;
-                    moduleCount += CreateModulesInExtents(btr, tr, ext, moduleWidth, moduleHeight, gap, moduleLayerId);
+                    moduleCount += CreateModulesInBoundary(btr, tr, ext, vertices, obstacles, moduleWidth, moduleHeight, gap, moduleLayerId);
                 }
 
                 tr.Commit();
@@ -88,6 +93,17 @@ namespace XiaoLiPV
         {
             return string.Equals(layerName, "0层", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(layerName, "0 层", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsObstacleLayer(string layerName)
+        {
+            return string.Equals(layerName, "0阴影", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(layerName, "0 阴影", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsObstacleCandidateLayer(string layerName)
+        {
+            return IsObstacleLayer(layerName) || !IsBoundaryLayer(layerName);
         }
 
         private static ObjectId EnsureLayer(Transaction tr, Database db, string layerName, short colorIndex)
@@ -109,10 +125,12 @@ namespace XiaoLiPV
             return id;
         }
 
-        private static int CreateModulesInExtents(
+        private static int CreateModulesInBoundary(
             BlockTableRecord btr,
             Transaction tr,
             Extents3d ext,
+            IList<Point2d> boundary,
+            IList<Extents3d> obstacles,
             double moduleWidth,
             double moduleHeight,
             double gap,
@@ -128,12 +146,154 @@ namespace XiaoLiPV
             {
                 for (double x = min.X; x + moduleWidth <= max.X + Tolerance.Global.EqualPoint; x += stepX)
                 {
+                    var moduleExt = new Extents3d(
+                        new Point3d(x, y, min.Z),
+                        new Point3d(x + moduleWidth, y + moduleHeight, max.Z));
+
+                    if (!AreModuleCornersInsideBoundary(x, y, moduleWidth, moduleHeight, boundary)) continue;
+                    if (OverlapsAnyObstacle(moduleExt, obstacles)) continue;
+
                     CreateModuleRect(btr, tr, x, y, moduleWidth, moduleHeight, layerId);
                     count++;
                 }
             }
 
             return count;
+        }
+
+        private static List<Extents3d> CollectObstacleExtents(BlockTableRecord btr, Transaction tr)
+        {
+            var obstacles = new List<Extents3d>();
+
+            foreach (ObjectId id in btr)
+            {
+                var ent = tr.GetObject(id, OpenMode.ForRead) as Entity;
+                if (ent == null) continue;
+                if (!IsObstacleCandidateLayer(ent.Layer)) continue;
+                if (!IsClosedPolyline(ent)) continue;
+
+                try
+                {
+                    obstacles.Add(ent.GeometricExtents);
+                }
+                catch
+                {
+                    // Some entities do not report extents until regenerated; ignore them for layout.
+                }
+            }
+
+            return obstacles;
+        }
+
+        private static bool IsClosedPolyline(Entity ent)
+        {
+            var pl = ent as Polyline;
+            if (pl != null) return pl.Closed;
+
+            var pl2d = ent as Polyline2d;
+            return pl2d != null && pl2d.Closed;
+        }
+
+        private static List<Point2d> GetPolylineVertices(Entity ent, Transaction tr)
+        {
+            var vertices = new List<Point2d>();
+
+            var pl = ent as Polyline;
+            if (pl != null)
+            {
+                for (int i = 0; i < pl.NumberOfVertices; i++)
+                {
+                    vertices.Add(pl.GetPoint2dAt(i));
+                }
+
+                return vertices;
+            }
+
+            var pl2d = ent as Polyline2d;
+            if (pl2d != null)
+            {
+                foreach (ObjectId vertexId in pl2d)
+                {
+                    var vertex = tr.GetObject(vertexId, OpenMode.ForRead) as Vertex2d;
+                    if (vertex != null)
+                    {
+                        vertices.Add(new Point2d(vertex.Position.X, vertex.Position.Y));
+                    }
+                }
+            }
+
+            return vertices;
+        }
+
+        private static bool AreModuleCornersInsideBoundary(
+            double x,
+            double y,
+            double width,
+            double height,
+            IList<Point2d> boundary)
+        {
+            return IsPointInsideOrOnBoundary(new Point2d(x, y), boundary) &&
+                   IsPointInsideOrOnBoundary(new Point2d(x + width, y), boundary) &&
+                   IsPointInsideOrOnBoundary(new Point2d(x + width, y + height), boundary) &&
+                   IsPointInsideOrOnBoundary(new Point2d(x, y + height), boundary);
+        }
+
+        private static bool IsPointInsideOrOnBoundary(Point2d point, IList<Point2d> polygon)
+        {
+            bool inside = false;
+            int count = polygon.Count;
+
+            for (int i = 0, j = count - 1; i < count; j = i++)
+            {
+                var a = polygon[i];
+                var b = polygon[j];
+
+                if (IsPointOnSegment(point, a, b)) return true;
+
+                bool crosses = ((a.Y > point.Y) != (b.Y > point.Y)) &&
+                               (point.X < (b.X - a.X) * (point.Y - a.Y) / (b.Y - a.Y) + a.X);
+                if (crosses) inside = !inside;
+            }
+
+            return inside;
+        }
+
+        private static bool IsPointOnSegment(Point2d point, Point2d a, Point2d b)
+        {
+            const double tolerance = 1e-8;
+            var lengthSquared = (b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y);
+            if (lengthSquared <= tolerance)
+            {
+                var dx = point.X - a.X;
+                var dy = point.Y - a.Y;
+                return dx * dx + dy * dy <= tolerance;
+            }
+
+            var cross = (point.Y - a.Y) * (b.X - a.X) - (point.X - a.X) * (b.Y - a.Y);
+            if (Math.Abs(cross) > tolerance) return false;
+
+            var dot = (point.X - a.X) * (b.X - a.X) + (point.Y - a.Y) * (b.Y - a.Y);
+            if (dot < -tolerance) return false;
+
+            return dot <= lengthSquared + tolerance;
+        }
+
+        private static bool OverlapsAnyObstacle(Extents3d candidate, IList<Extents3d> obstacles)
+        {
+            for (int i = 0; i < obstacles.Count; i++)
+            {
+                if (ExtentsOverlap(candidate, obstacles[i])) return true;
+            }
+
+            return false;
+        }
+
+        private static bool ExtentsOverlap(Extents3d a, Extents3d b)
+        {
+            return a.MinPoint.X < b.MaxPoint.X &&
+                   a.MaxPoint.X > b.MinPoint.X &&
+                   a.MinPoint.Y < b.MaxPoint.Y &&
+                   a.MaxPoint.Y > b.MinPoint.Y;
         }
 
         private static void CreateModuleRect(
