@@ -41,23 +41,18 @@ namespace XiaoLiPV
                 new TypedValue((int)DxfCode.Start, "TEXT,MTEXT,ATTRIB")
             });
 
-            ObjectId[] selectedIds;
+            ObjectId? singleId = null;
+            SelectionSet batchSelection = null;
             if (settings.Mode == TextIncrementMode.Single)
             {
-                var entityOptions = new PromptEntityOptions("\n请选择需要递增的单个文字对象: ");
-                entityOptions.SetRejectMessage("\n请选择文字对象。");
-                entityOptions.AddAllowedClass(typeof(DBText), true);
-                entityOptions.AddAllowedClass(typeof(MText), true);
-                entityOptions.AddAllowedClass(typeof(AttributeReference), true);
-
-                var entityResult = ed.GetEntity(entityOptions);
+                var entityResult = ed.GetEntity("\n请选择需要递增的单个文字对象: ");
                 if (entityResult.Status != PromptStatus.OK)
                 {
                     ed.WriteMessage("\n[小栗光伏] 未选择有效文字对象，文字递增已取消。\n");
                     return;
                 }
 
-                selectedIds = new[] { entityResult.ObjectId };
+                singleId = entityResult.ObjectId;
             }
             else
             {
@@ -68,13 +63,15 @@ namespace XiaoLiPV
                     return;
                 }
 
-                selectedIds = sel.Value.GetObjectIds();
+                batchSelection = sel.Value;
             }
 
             using (doc.LockDocument())
             using (var tr = db.TransactionManager.StartTransaction())
             {
-                var targets = CollectTargets(tr, selectedIds);
+                var targets = settings.Mode == TextIncrementMode.Single
+                    ? CollectSingleTarget(tr, singleId)
+                    : CollectTargets(tr, batchSelection);
                 if (targets.Count == 0)
                 {
                     ed.WriteMessage("\n[小栗光伏] 选中对象中没有可递增的尾部数字文字。\n");
@@ -135,43 +132,57 @@ namespace XiaoLiPV
             }
         }
 
-        private static List<TextTarget> CollectTargets(Transaction tr, ObjectId[] objectIds)
+        private static List<TextTarget> CollectSingleTarget(Transaction tr, ObjectId? objectId)
         {
             var targets = new List<TextTarget>();
-            if (objectIds == null || objectIds.Length == 0) return targets;
+            if (!objectId.HasValue || objectId.Value.IsNull) return targets;
 
-            for (int index = 0; index < objectIds.Length; index++)
+            AddTargetIfEligible(tr, objectId.Value, targets);
+            return targets;
+        }
+
+        private static List<TextTarget> CollectTargets(Transaction tr, SelectionSet selection)
+        {
+            var targets = new List<TextTarget>();
+            if (selection == null) return targets;
+
+            foreach (SelectedObject so in selection)
             {
-                var id = objectIds[index];
-                if (id.IsNull) continue;
-                var entity = tr.GetObject(id, OpenMode.ForRead) as Entity;
-                if (entity == null) continue;
-
-                if (!TryGetText(entity, out var text)) continue;
-                if (string.IsNullOrWhiteSpace(text)) continue;
-
-                var match = TrailingNumberRegex.Match(text);
-                if (!match.Success) continue;
-
-                if (!TryGetSortPoint(entity, out var sortX, out var sortY))
-                {
-                    sortX = 0.0;
-                    sortY = 0.0;
-                }
-
-                targets.Add(new TextTarget
-                {
-                    Id = id,
-                    OriginalText = text,
-                    Prefix = match.Groups[1].Value,
-                    NumberText = match.Groups[2].Value,
-                    Suffix = match.Groups[3].Value,
-                    SortX = sortX,
-                    SortY = sortY
-                });
+                if (so == null) continue;
+                AddTargetIfEligible(tr, so.ObjectId, targets);
             }
 
             return targets;
+        }
+
+        private static void AddTargetIfEligible(Transaction tr, ObjectId id, List<TextTarget> targets)
+        {
+            if (id.IsNull) return;
+            var entity = tr.GetObject(id, OpenMode.ForRead) as Entity;
+            if (entity == null) return;
+
+            if (!TryGetText(entity, out var text)) return;
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            var match = TrailingNumberRegex.Match(text);
+            if (!match.Success) return;
+
+            if (!TryGetSortPoint(entity, out var sortX, out var sortY))
+            {
+                sortX = 0.0;
+                sortY = 0.0;
+            }
+
+            targets.Add(new TextTarget
+            {
+                Id = id,
+                OriginalText = text,
+                Prefix = match.Groups[1].Value,
+                NumberText = match.Groups[2].Value,
+                Suffix = match.Groups[3].Value,
+                SortX = sortX,
+                SortY = sortY
+            });
         }
 
         private static bool TryGetText(Entity entity, out string text)
