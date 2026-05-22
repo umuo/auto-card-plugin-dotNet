@@ -41,11 +41,12 @@ namespace XiaoLiPV
                 new TypedValue((int)DxfCode.Start, "TEXT,MTEXT,ATTRIB")
             });
 
-            ObjectId? singleId = null;
+            ObjectId singleId = ObjectId.Null;
             SelectionSet batchSelection = null;
             if (settings.Mode == TextIncrementMode.Single)
             {
-                var entityResult = ed.GetEntity("\n请选择需要递增的单个文字对象: ");
+                var entityOptions = new PromptEntityOptions("\n请选择需要递增的单个文字对象: ");
+                var entityResult = ed.GetEntity(entityOptions);
                 if (entityResult.Status != PromptStatus.OK)
                 {
                     ed.WriteMessage("\n[小栗光伏] 未选择有效文字对象，文字递增已取消。\n");
@@ -132,12 +133,12 @@ namespace XiaoLiPV
             }
         }
 
-        private static List<TextTarget> CollectSingleTarget(Transaction tr, ObjectId? objectId)
+        private static List<TextTarget> CollectSingleTarget(Transaction tr, ObjectId objectId)
         {
             var targets = new List<TextTarget>();
-            if (!objectId.HasValue || objectId.Value.IsNull) return targets;
+            if (objectId.IsNull) return targets;
 
-            AddTargetIfEligible(tr, objectId.Value, targets);
+            AddTargetIfEligible(tr, objectId, targets);
             return targets;
         }
 
