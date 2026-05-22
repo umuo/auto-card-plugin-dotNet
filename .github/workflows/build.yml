@@ -1,0 +1,47 @@
+name: Build XiaoLiPV DLL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Verify Autodesk references exist
+        shell: pwsh
+        run: |
+          $files = @(
+            "lib/Autodesk/AcMgd.dll",
+            "lib/Autodesk/AcCoreMgd.dll",
+            "lib/Autodesk/AcDbMgd.dll"
+          )
+          $missing = @()
+          foreach ($f in $files) {
+            if (-not (Test-Path $f)) { $missing += $f }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Host "Missing Autodesk reference DLLs:"
+            $missing | ForEach-Object { Write-Host " - $_" }
+            throw "Build cannot continue until these DLLs are committed to lib/Autodesk/"
+          }
+
+      - name: Build Release
+        run: msbuild XiaoLiPV.csproj /p:Configuration=Release /p:Platform=AnyCPU
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XiaoLiPV-dll
+          path: |
+            bin/Release/XiaoLiPV.dll
+            bin/Release/*.pdb
