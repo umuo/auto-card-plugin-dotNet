@@ -15,6 +15,8 @@ namespace XiaoLiPV
         private readonly TextBox _layoutModuleHeight;
         private readonly TextBox _layoutGap;
         private readonly ComboBox _layoutOrientation;
+        private readonly TextBox _cableModulesPerString;
+        private readonly ComboBox _cableRouteMode;
 
         public SidebarControl()
         {
@@ -59,7 +61,9 @@ namespace XiaoLiPV
                 out _layoutModuleHeight,
                 out _layoutGap,
                 out _layoutOrientation));
-            _tabs.TabPages.Add(CreateSimplePage("组串穿线", "执行 XL_CABLE", "XL_CABLE"));
+            _tabs.TabPages.Add(CreateCablePage(
+                out _cableModulesPerString,
+                out _cableRouteMode));
             _tabs.TabPages.Add(CreateSimplePage("组串命名", "执行 XL_NAME", "XL_NAME"));
             _tabs.TabPages.Add(CreateSimplePage("桥架统计", "执行 XL_BRIDGE", "XL_BRIDGE"));
             _tabs.TabPages.Add(CreateSimplePage("多段线统计", "执行 XL_PLINE", "XL_PLINE"));
@@ -103,6 +107,17 @@ namespace XiaoLiPV
             };
         }
 
+        public CableSettings GetCableSettings()
+        {
+            return new CableSettings
+            {
+                ModulesPerString = Math.Max(1, ReadInt(_cableModulesPerString, 20)),
+                RouteMode = _cableRouteMode.SelectedIndex == 1
+                    ? CableRouteMode.OneLine
+                    : CableRouteMode.UShape
+            };
+        }
+
         private TabPage CreateShadowPage(out ComboBox roofType)
         {
             var page = CreatePage("光伏阴影分析");
@@ -112,6 +127,25 @@ namespace XiaoLiPV
             panel.Controls.Add(roofType);
             panel.Controls.Add(CreateActionButton("执行 XL_SHADOW", "XL_SHADOW"));
             panel.Controls.Add(CreateHint("当前已实现第一版真实执行：选择障碍物后，会在 CAD 中生成冬至/夏至阴影示意轮廓。"));
+            page.Controls.Add(panel);
+            return page;
+        }
+
+        private TabPage CreateCablePage(out TextBox modulesPerString, out ComboBox routeMode)
+        {
+            var page = CreatePage("组串穿线");
+            var panel = CreateFlowPanel();
+
+            panel.Controls.Add(CreateLabel("每串组件数"));
+            modulesPerString = CreateTextBox("20");
+            panel.Controls.Add(modulesPerString);
+
+            panel.Controls.Add(CreateLabel("穿线路径"));
+            routeMode = CreateCombo(new[] { "U形", "一字形" });
+            panel.Controls.Add(routeMode);
+
+            panel.Controls.Add(CreateActionButton("执行 XL_CABLE", "XL_CABLE"));
+            panel.Controls.Add(CreateHint("读取 0组件 图层上的组件矩形/多段线，生成 0组串穿线 和 0正负极端点。"));
             page.Controls.Add(panel);
             return page;
         }
@@ -232,6 +266,22 @@ namespace XiaoLiPV
 
             if (box != null &&
                 double.TryParse(box.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+            {
+                return value;
+            }
+
+            return fallback;
+        }
+
+        private static int ReadInt(TextBox box, int fallback)
+        {
+            int value;
+            if (box != null && int.TryParse(box.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+            {
+                return value;
+            }
+
+            if (box != null && int.TryParse(box.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out value))
             {
                 return value;
             }

@@ -49,7 +49,14 @@ namespace XiaoLiPV
         }
 
         [CommandMethod("XL_CABLE")]
-        public void ShowCableTool() => ShowSidebarTab(ToolTab.Cable);
+        public void RunCableTool()
+        {
+            EnsurePalette();
+            _palette.Visible = true;
+            _control.SelectTab(ToolTab.Cable);
+            var settings = _control.GetCableSettings();
+            CableToolService.Run(Application.DocumentManager.MdiActiveDocument, settings);
+        }
 
         [CommandMethod("XL_NAME")]
         public void ShowNameTool() => ShowSidebarTab(ToolTab.Name);
