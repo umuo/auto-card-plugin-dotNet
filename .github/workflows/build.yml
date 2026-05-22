@@ -17,6 +17,9 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
       - name: Verify Autodesk references exist
         shell: pwsh
         run: |
@@ -35,6 +38,9 @@ jobs:
             throw "Build cannot continue until these DLLs are committed to lib/Autodesk/"
           }
 
+      - name: Restore
+        run: msbuild XiaoLiPV.csproj /t:Restore /p:Configuration=Release /p:Platform=AnyCPU
+
       - name: Build Release
         run: msbuild XiaoLiPV.csproj /p:Configuration=Release /p:Platform=AnyCPU
 
@@ -43,5 +49,5 @@ jobs:
         with:
           name: XiaoLiPV-dll
           path: |
-            bin/Release/XiaoLiPV.dll
-            bin/Release/*.pdb
+            bin/Release/net48/XiaoLiPV.dll
+            bin/Release/net48/*.pdb
